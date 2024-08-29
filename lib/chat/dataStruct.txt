@@ -1,0 +1,223 @@
+chats{
+    chatId{
+
+        lastMessageId, 
+        whoSent,
+        whoReceived,
+        message,
+        timestamp,
+
+        messages{
+
+            messageId{
+
+                whoSent,
+                whoReceived,
+                timestamp,
+                message
+                
+            }
+        }
+    }
+}
+
+//how to define a new message. 
+//case1 -> already delivered and was read
+//case2 -> already delivered when the device is online but wasn't read yet
+//case3 -> the device is offline and the message was not built yet
+
+case1 -> just only listen to the new message//managed
+case2 -> managed
+case3 -> in this case, when the device is online, the application is gonna listen to it.
+         it needs to iterate all of the data within messages and find the not read messages
+         How to define not delivered message?
+
+         in hivebox, there are messageid for each messages
+         method1)
+         iterate each messages and validate if any of them don't exist in firebase
+         method2)
+         iterate each firebase docs in messageIds and find mismatchs
+
+         so, we have to find the one doesn't exist.
+
+         local have 
+
+         local{
+            message1,
+            message2,
+            message3,
+         }
+
+         cloud{
+            message1,
+            message2,
+            message3,
+            message4,
+         }
+         so download all of the messageids and out them into the list
+         List<String> cloudMessageIds['bb','aa','cd','sdx','','','','','',];
+         List<String> hiveMessagesId['','','','','','',];
+
+         wait...we can find older messageId than the one in the Hive box
+         lastMessageTimeHive = Hive.timestamp
+         for(iterate all messages.timestamp){
+            
+            if(cloud.timestamp older than lastMessageTimeHive?){
+                storeHiveBox(message, whoSent, whoReceived, timestamp);
+            }
+         }
+         lastMessageTimeOnCloud = firebase.timestamp
+         
+
+for example....
+chats{
+    exampleSender_exampleReceiverChatId1{
+        'id_person3_2024 8 17 8:34.222'(lastMessageId)
+
+        message{
+            id_message1{
+                id_person1,(sender)
+                id_person3,(receiver)
+                2024 8 17 8:31.129
+                'hi john'
+            }
+            id_message2{
+                id_person1,(sender)
+                id_person3,(receiver)
+                2024 8 17 8:34.222
+                'how are you'
+            }
+
+        }
+    }
+    exampleSender_exampleReceiverChatId2{
+        'id_person3_2024 8 17 8:34.222'(lastMessageId)
+        message{
+            id_message1{
+                id_person2,(sender)
+                id_person3,(receiver)
+                2024 8 17 8:31.129
+                'hi john'
+            }
+            id_message2{
+                id_person2,(sender)
+                id_person3,(receiver)
+                2024 8 17 8:34.222
+                'i like your property'
+            }
+        }
+    }
+}
+
+//new version
+ void _startListeningForMessages() async {
+      FirebaseAuth _auth = FirebaseAuth.instance;
+      final User? user = _auth.currentUser;
+      String userId = user!.uid;
+
+        FirebaseFirestore.instance
+            .collection('chats')
+            .where('whoReceived', isEqualTo: userId) // This will still work for filtering chats
+            .snapshots()
+            .listen((snapshot) {
+        for (var chatDoc in snapshot.docs) {
+            var chatData = chatDoc.data();
+            String lastMessageId = chatData['lastMessageId']; // Retrieve lastMessageId
+            
+            // Access the 'messages' collection within the current chat
+            chatDoc.reference.collection('messages').doc(lastMessageId).get().then((messageDoc) {
+            if (messageDoc.exists) {
+                var messageData = messageDoc.data();
+                
+                String lastMessage = messageData!['message'];
+                Timestamp timestamp = messageData['timestamp'];
+                String senderId = messageData['whoSent'];
+                String currentUser = messageData['whoReceived'];
+                bool isMe = (senderId == userId);
+
+                String formattedTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(timestamp.toDate());
+                String messageId = getChatId(currentUser, senderId) + formattedTimestamp;
+
+                bool messageExists = wasReadValidation(messageId);
+
+                if (messageExists) {
+                print('Message already exists: $messageId');
+                } else {
+                print('New message, storing in Hive: $messageId');
+                _storeMessageInHive(lastMessage, timestamp.toDate(), senderId, currentUser, isMe);
+                print('New message stored in Hive: $messageId');
+                }
+
+                print('senderId ? : $senderId');
+                print('currentUser ? : $currentUser');
+
+                // Notify the app that a new message has been received
+                context.read<SharedMessageState>().setNewMessageReceived(true);
+                context.read<SharedMessageState>().setFromWho(senderId); // Pass the sender ID
+            }
+            });
+        }
+    });
+}
+
+//old version
+void _startListeningForMessages() {
+
+      FirebaseAuth _auth = FirebaseAuth.instance;
+      final User? user = _auth.currentUser;
+      String userId = user!.uid;
+      
+      FirebaseFirestore.instance
+          .collection('chats')
+          .where('whoReceived', isEqualTo: userId)
+          .snapshots()
+          .listen((snapshot) {
+        for (var doc in snapshot.docs) {
+          var data = doc.data();
+          String lastMessage = data['lastMessage'];
+          Timestamp timestamp = data['timestamp'];
+          String senderId = data['whoSent'];
+          String currentUser = data['whoReceived'];
+          bool isMe = (senderId == userId);
+
+          String formattedTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(timestamp.toDate());
+          String messageId = getChatId(currentUser, senderId) + formattedTimestamp;
+          
+          
+          bool MessageExists = wasReadValidation(messageId);
+
+          if (MessageExists) {
+              print('Message already exists: $messageId');
+          } else {
+              print('New message, storing in Hive: $messageId');
+              _storeMessageInHive(lastMessage, timestamp.toDate(), senderId, currentUser, isMe);
+              print('New message stored in Hive: $messageId');
+          }
+
+          print('senderId ? : $senderId');
+          print('currentUser ? : $currentUser');
+
+          // Notify the app that a new message has been received
+          context.read<SharedMessageState>().setNewMessageReceived(true);
+          context.read<SharedMessageState>().setFromWho(senderId); // Pass the sender ID
+        }
+      });
+    }
+
+
+let's check
+
+* firebase storing data structure and retrieving(becasue lastmessageid is sender+timestamp)
+* how hive store data for receiving and sending
+* check how those data are opened to make messages(check if there is any mismatch for storing method and opening method)
+
+hive lastMessageBox
+
+lastMessageBox{
+    key:getChatID(currentUser and sender)
+    content{
+        lastMessageId(sender+timestamp)
+        text
+        senderreceiver
+    }
+}

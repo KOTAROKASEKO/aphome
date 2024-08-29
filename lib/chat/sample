@@ -1,0 +1,22 @@
+class ChatViewModel {
+   static void storeMessageInHive(
+     String text, 
+     DateTime timestamp, 
+     String whoSent, 
+     String whoReceived, 
+     bool isMe
+   ) {
+     // Example: Storing the message in Hive
+     var box = Hive.box('messageBox');
+
+     box.put('lastMessage', {
+       'text': text,
+       'timestamp': timestamp,
+       'whoSent': whoSent,
+       'whoReceived': whoReceived,
+       'isMe': isMe
+     });
+
+     print('Message stored in Hive: $text');
+   }
+}

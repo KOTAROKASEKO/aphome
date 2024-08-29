@@ -8,42 +8,65 @@ class ProfileSaveProvider extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isProfileSaved = false;
   bool _isLoading = false;
+
   bool get isProfileSaved => _isProfileSaved;
   bool get isLoading => _isLoading;
-  ProfileModel prf;
 
-  ProfileSaveProvider(this.prf){
-    saveProfile();
-  }
+  Future<void> saveProfile(
 
-   Future<void> saveProfile() async {
+      String nickname,
+      String selectedOption,
+      String _hygieneLevel,
+      String _gender,
+      String rent,
+      int age,
+      String note,
+      String userType,
+      String photoUrl,
+      ) async {
+
+    
     User? user = _auth.currentUser;
     if (user != null) {
       String userId = user.uid;
 
-      if (prf.nickname.isNotEmpty && prf.rent.isNotEmpty && prf.age > 0) {
+      if (nickname.isNotEmpty && rent.isNotEmpty && age > 0) {
         try {
           _isLoading = true;
           notifyListeners(); // Notify listeners that the process started
           // Save to Firebase Firestore
           await FirebaseFirestore.instance.collection('profiles').doc(userId).set({
-            'nickname': prf.nickname,
-            'gender': prf.gender,
-            'rent': prf.rent,
-            'age': prf.age,
-            'introduction': prf.introduction,
+            'nickname': nickname,
+            'gender': _gender,
+            'rent': rent,
+            'age': age,
+            'introduction': note,
             'createdAt': FieldValue.serverTimestamp(),
-            'selectedOption': prf.selectedOption,
-            'hygieneLevel': prf.hygieneLevel,
-            'userType': prf.userType,
+            'selectedOption': selectedOption,
+            'hygieneLevel': _hygieneLevel,
+            'userType': userType,
             'userId': userId,
             'isBanned': false,
-            'photoUrls': prf.photoUrls,
+            'photoUrls': photoUrl,
           });
 
           // Save to Hive
           var profilesBox = await Hive.openBox('profilesBox');
-          profilesBox.put(userId, prf);
+          ProfileModel profile = ProfileModel(
+            nickname: nickname,
+            gender: _gender,
+            rent: rent,
+            age: age,
+            introduction: note,
+            selectedOption: selectedOption,
+            hygieneLevel: _hygieneLevel,
+            userType: userType,
+            userId: userId,
+            photoUrls: photoUrl,
+          );
+          profilesBox.put(userId, profile);
+          
+
           _isProfileSaved = true;
           
         } catch (e) {

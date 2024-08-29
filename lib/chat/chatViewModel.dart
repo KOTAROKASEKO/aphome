@@ -4,20 +4,25 @@ import 'package:test2/chat/chatLastMessage.dart';
 
 import 'ChatMessage.dart';
 
+//this class will be called when the app stores messages, both when the app received and sent.
 class MessageStorageService {
-  final Box chatBox;
-  final Box lastMessageBox;
+  Box? chatBox;
+  Box? lastMessageBox;
 
-  MessageStorageService(this.chatBox, this.lastMessageBox);
+  MessageStorageService();//この箱たちいらない
 
-  void storeMessageInHive({
+  Future<void> storeMessageInHive({
     required String text,
     required DateTime timestamp,
     required String whoSent,
     required String whoReceived,
     required bool isMe,
     required bool newMessageExists,
-  }) {
+  }) async {
+
+    chatBox = await Hive.openBox<ChatMessage>('chatBox');
+    lastMessageBox = await Hive.openBox<Chatlastmessage>('chatLastMessage');
+
     print('send message was called');
     print('receiver $whoReceived');
     print('sender $whoSent');
@@ -47,11 +52,13 @@ class MessageStorageService {
       newMessageExists: newMessageExists,
     );
 
-    chatBox.put(messageId, chatMessage);
-    lastMessageBox.put(id, lastMessage); 
+    chatBox!.put(messageId, chatMessage);
+    lastMessageBox!.put(id, lastMessage);
+    
+     
 
     print('another user is $anotherUser');
-    var check = lastMessageBox.get(id); 
+    var check = lastMessageBox!.get(id); 
     print('other user in the box is $check');
 
     print('StoremessageinHive(Method)');

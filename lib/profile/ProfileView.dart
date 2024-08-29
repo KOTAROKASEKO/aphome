@@ -38,7 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
   
   final picker = ImagePicker();
 
-
+  bool isProfileEmpty = true;
   String? nickname;
   String? gender;
   String? rent;
@@ -76,6 +76,7 @@ class _ProfilePageState extends State<ProfilePage> {
       hygieneLevel = profile.hygieneLevel;
       isBanned = false; // Assuming isBanned is not saved in the profile object
 
+      isProfileEmpty = false;
 
       // Fill in the controllers with the retrieved data
       _nicknameController.text = nickname!;
@@ -87,45 +88,10 @@ class _ProfilePageState extends State<ProfilePage> {
       _hygieneController.text = hygieneLevel!;
     });
   } else {
-    fetchAndStoreProfileData(userId, box);
+    // If profile is null, set the profile status to empty
     setState(() {
-
+      isProfileEmpty = true;
     });
-  }
-}
-
-Future<void> fetchAndStoreProfileData(String userId, Box box) async {
-  try {
-    print('trying to get profile!');
-    // Get the Firestore instance
-
-    // Check if the document exists
-    DocumentSnapshot doc = await _firestore.collection('profiles').doc(userId).get();
-      if (doc.exists) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      // Create a ProfileModel instance from the Firestore document data
-      ProfileModel profile = ProfileModel(
-        nickname: data['nickname'], 
-        gender: data['gender'],
-        rent: data['rent'], 
-        age: data['age'], 
-        introduction: data['introduction'], 
-        selectedOption: data['selectedOption'], 
-        hygieneLevel: data['hygieneLevel'], 
-        userType: data['userType'], 
-        userId: userId, 
-        photoUrls: data['photoUrls']
-        );
-
-      // Store the ProfileModel instance in Hive with the key as userId
-      await box.put(userId, profile);
-
-      print('Profile data stored successfully in Hive');
-    } else {
-      print('Profile document does not exist');
-    }
-  } catch (e) {
-    print('Error retrieving or storing profile data: $e');
   }
 }
 
@@ -345,12 +311,14 @@ Future<void> fetchAndStoreProfileData(String userId, Box box) async {
                   enableDrag: true,
                   expand: true,
                   context: context,
-                  builder: (context) => EditProfile(false),
+                  builder: (context) => EditProfile(),
                 ),
               ),),
             ],
           ),
         ),
+
+
         ),
         
 

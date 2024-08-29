@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test2/BottomTab.dart';
 import 'package:test2/color.dart';
-import 'package:test2/profile/editProfile.dart';
+import 'package:test2/profile/CreateProfile.dart';
 
 class AuthChecker extends StatefulWidget {
   const AuthChecker({super.key});
@@ -79,7 +79,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => EditProfile(true)),
+          MaterialPageRoute(builder: (context) => CreateProfile()),
         );
         setState(() {
           _isShowRegister = false;

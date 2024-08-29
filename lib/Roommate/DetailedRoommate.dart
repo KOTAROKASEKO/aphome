@@ -32,14 +32,11 @@ class _DetailedProfileScreenState extends State<DetailedProfileScreen> {
       loggedIn = loginStatus;
     });
   }
-
   void _getCurrentUser(){
     FirebaseAuth _auth = FirebaseAuth.instance;
     currentUser = _auth.currentUser;
   }
 
-
-  
   String? get userId => widget.profileData['userId'];
   String? get profileImageUrl => widget.profileData['profileImageUrl'];
   String? get nickname => widget.profileData['nickname'];
@@ -188,7 +185,12 @@ class _DetailedProfileScreenState extends State<DetailedProfileScreen> {
             ),
           ],
         ),
-      
+        const SizedBox(height: 20),
+        Text(
+          'I am (a)...',
+          style: const TextStyle(fontFamily: 'bold', fontSize: 20, color: AppColors.appBarFonto),
+          softWrap: true,
+        ),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -271,7 +273,7 @@ class _DetailedProfileScreenState extends State<DetailedProfileScreen> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ChatView(userId)),
+                MaterialPageRoute(builder: (context) => ChatView(userId.toString())),
                 
               );
             } else if(userId==currentUser){

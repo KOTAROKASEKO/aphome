@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:test2/BottomTab.dart';
 import 'package:test2/profile/ProfileSave.dart';
-import 'package:test2/profile/profileModel.dart';
 
-// ignore: must_be_immutable
 class EditProfile extends StatefulWidget {
-  bool fromAuth;
-  EditProfile(this.fromAuth);
-
   @override
   _EditProfileState createState() => _EditProfileState();
 }
@@ -24,7 +18,7 @@ class _EditProfileState extends State<EditProfile> {
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
-  ProfileSaveProvider? prf;
+  ProfileSaveProvider prf = ProfileSaveProvider();
 
   String? nickname;
   String? _gender;
@@ -37,13 +31,7 @@ class _EditProfileState extends State<EditProfile> {
   //added
   bool? isBanned;
   bool? userPosted;//will disable the user to post twice
-  String userId='';
-
-  List <String> genders =[
-    'Male',
-    'Female',
-  ];
-
+  
   @override
   void initState() {
     super.initState();
@@ -133,7 +121,6 @@ class _EditProfileState extends State<EditProfile> {
     }
   }
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -175,20 +162,24 @@ class _EditProfileState extends State<EditProfile> {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),
-                  DropdownButton<String>(
-                    value: _gender,
-                    items: genders.map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _gender = value!;
-                      });
-                    },
+              DropdownButton<String>(
+                value: _gender,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'Male',
+                    child: Text('Male'),
                   ),
+                  DropdownMenuItem(
+                    value: 'Female',
+                    child: Text('Female'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _gender = value;
+                  });
+                },
+              ),
               const SizedBox(height: 20),
               const Text(
                 'Maximum Rent',
@@ -280,40 +271,16 @@ class _EditProfileState extends State<EditProfile> {
               
               GestureDetector(
                 onTap: () {
-                  if(int.tryParse(_ageController.text) == null){
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: Text("Error"),
-                          content: Text("You can contain only number in age field"),
-                          actions: <Widget>[
-                            TextButton(
-                              child: Text("ok"),
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  }
-                  else{
-                  var userProf = ProfileModel(
-                   nickname:  _nicknameController.text,
-                   selectedOption: _lifeStyle!,
-                   hygieneLevel: _hygieneLevel!,
-                   gender: _genderController.text,
-                   rent: _rentController.text,
-                    age: int.parse(_ageController.text),
-                   introduction:  _noteController.text,
-                   userType:  'student',
-                   photoUrls:  profileImageUrl?? '',
-                   userId: userId,
-                   );
-                    prf = ProfileSaveProvider(
-                      userProf
+                  prf.saveProfile(
+                    _nicknameController.text,
+                    _lifeStyle!,
+                    _hygieneLevel!,
+                    _genderController.text,
+                    _rentController.text,
+                    int.parse(_ageController.text),
+                    _noteController.text,
+                    'student',
+                    profileImageUrl?? ''
                     );
                   
                   setState(() {
@@ -324,19 +291,6 @@ class _EditProfileState extends State<EditProfile> {
                   _noteController.clear();
                   _lifeStyle = null;
                 });
-                if (widget.fromAuth) {
-                  // Forward navigation to bottom navigation view
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => BottomTab()), // Replace with your bottom view widget
-                  );
-                } else {
-                  // Pop off the modal bottom sheet
-                  Navigator.pop(context);
-                }
-                  }
-
-
                 },
                   
                 child: Container(

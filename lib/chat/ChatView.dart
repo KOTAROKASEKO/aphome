@@ -4,12 +4,11 @@ import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
 import 'package:test2/chat/ChatMessage.dart';
 import 'package:test2/chat/chatLastMessage.dart';
-import 'package:test2/chat/chatViewModel.dart';
 import 'package:test2/color.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:test2/main.dart';
+import 'package:test2/sharedData.dart';
 
 class ChatView extends StatefulWidget {
   final String? receiverId;
@@ -19,9 +18,7 @@ class ChatView extends StatefulWidget {
   _ChatListViewState createState() => _ChatListViewState();
 }
 
-class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMixin{
-  bool get wantKeepAlive => true;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class _ChatListViewState extends State<ChatView> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _messageController = TextEditingController();
   String? chatRoomId;
@@ -31,8 +28,8 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
   String? otherUser;
   late bool validatedChatRoom;
   String? newSenderId;
-  bool? isPreviousDiffDay;
-  
+  final ScrollController _scrollController = ScrollController();
+
     @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -53,19 +50,19 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
     otherUser = widget.receiverId;
     print('other user1 : $otherUser');
     super.initState();
-    _getCurrentUser();
+    currentUser = SharedData.getCurrentUserId();
     _openChatBox();
     chatRoomId = getChatId(currentUser, otherUser!);
     print('chatId of this chatroom is $chatRoomId');
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
-  void _getCurrentUser() {
-    final User? user = _auth.currentUser;
-    if (user != null) {
-      currentUser = user.uid;
-    print('receiverid is $otherUser');
-    print('senderId is $currentUser');
-    }
+  void _scrollToBottom() {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> _openChatBox() async {
@@ -74,7 +71,6 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
 
     setState(() {}); // Trigger rebuild to update UI after boxes are opened
   }
-  
   void _sendMessage(String messageText) {
     String chatId = getChatId(currentUser, otherUser!);
     DateTime now = DateTime.now();
@@ -101,21 +97,60 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
     }, SetOptions(merge: true));
 
     // Store the message in Hive (local storage)
-    final messageStorageService = MessageStorageService(chatBox!, lastMessageBox!);
-
-    messageStorageService.storeMessageInHive(
-      text: messageText,
-      timestamp: DateTime.now(),
-      whoSent: currentUser,
-      whoReceived: otherUser!,
-      isMe: true,
-      newMessageExists: true,
-    );
+    _storeMessageInHive(messageText, now, currentUser, otherUser!, true, false);
 
     // Clear the input field after sending (assuming _messageController is defined elsewhere)
     _messageController.clear();
   } 
   
+  void _storeMessageInHive(String text, DateTime timestamp, String whoSent, String whoReceived, bool isMe, bool newMessageExists) {
+    print('send message was called');
+    print('receiver $whoReceived');
+    print('sender $whoSent');
+
+    String formattedTimestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(timestamp);
+    String messageId = getChatId(currentUser, whoReceived) + formattedTimestamp;//we can identify which message by sender and timestamp cuz one sender cannot send multiple messages at same time
+    String id = 'lastMessage_${getChatId(currentUser, widget.receiverId!)}';//this is necessary so that the lastmessageId will be overwritten
+    String chatId = getChatId(whoSent, whoReceived);
+    String? anotherUser;
+
+    if (whoSent == currentUser && whoReceived != currentUser) {
+        anotherUser = whoReceived;
+    } else if (whoSent != currentUser && whoReceived == currentUser) {
+        anotherUser = whoSent;
+    }
+
+    var chatMessage = ChatMessage(
+      messageText: text,
+      timestamp: timestamp,
+      whoSent: whoSent,
+      whoReceived: whoReceived,
+      isMe: isMe,
+      chatId: chatId, 
+      wasRead: true,
+    );
+
+    var lastMessage = Chatlastmessage(
+      messageText: text,
+      timestamp: timestamp,
+      senderId: whoSent,
+      otherUser: anotherUser!,
+      isMe: isMe,
+      newMessageExists: newMessageExists,
+    );
+
+    chatBox?.put(messageId, chatMessage);
+    lastMessageBox?.put(id, lastMessage); // store with `id`
+
+    print('another user is $anotherUser');
+    var check = lastMessageBox?.get(id); // retrieve with `id`
+    print('other user in the box is $check');
+
+    print('StoremessageinHive(Method)');
+    print('chatRoomId of this message: ${chatMessage.chatId}');
+}
+
+
   String getChatId(String currentUser, String otherUser) {
     if (currentUser.compareTo(otherUser) < 0) {
       return '${currentUser}_$otherUser';
@@ -126,7 +161,6 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     //context.read<SharedMessageState>().setNewMessageReceived(false);
 
     return Scaffold(
@@ -138,75 +172,82 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
       body: Column(
         children: [
           Expanded(
-          child: chatBox == null
-                ? Center(child: CircularProgressIndicator()) // Show loading indicator until chatBox is initialized
-                : ValueListenableBuilder(
-                    valueListenable: chatBox!.listenable(),
-                    builder: (context, Box chatBox, _) {
-                      // Get all chat messages from the box
-                      final messages = chatBox.values.toList();
-                      
-                      bool chatExists = false;
-                      String newChatId = '';
+  child: chatBox == null
+      ? Center(child: CircularProgressIndicator()) // Show loading indicator until chatBox is initialized
+      : ValueListenableBuilder(
+          valueListenable: chatBox!.listenable(),
+          builder: (context, Box chatBox, _) {
+            // Get all chat messages from the box
+            final messages = chatBox.values.toList();
+            
+            bool chatExists = false;
+            String newChatId = '';
 
-                      // Loop through all messages to check if chat exists between the users
-                      for (var chatMessage in messages) {
-                        final chatData = chatMessage as ChatMessage;
-                        String chatId = getChatId(chatData.whoSent!, chatData.whoReceived!);
+            // Loop through all messages to check if chat exists between the users
+            for (var chatMessage in messages) {
+              final chatData = chatMessage as ChatMessage;
+              String chatId = getChatId(chatData.whoSent!, chatData.whoReceived!);
 
-                        if (chatData.whoSent == currentUser && chatData.whoReceived == otherUser || 
-                            chatData.whoReceived == currentUser && chatData.whoSent == otherUser) {
-                            chatExists = true;
-                            newChatId = chatId;
-                            break;
-                          }
-                        }
-                      // If chat doesn't exist, create a new chatId
-                      if (!chatExists) {
-                        newChatId = getChatId(currentUser, otherUser!); // Generate new chatId based on the currentUser and otherUser
-                        validatedChatRoom = true; // This will return true so a new chat can start
-                        // Optionally, add the new chat to the box or handle it elsewhere in your app logic
-                        print('New chat created with chatId: $newChatId');
-                      } else {
-                        validatedChatRoom = newChatId == chatRoomId; // Validate chat room if chat exists
-                      }
+              if (chatData.whoSent == currentUser && chatData.whoReceived == otherUser || 
+                  chatData.whoReceived == currentUser && chatData.whoSent == otherUser) {
 
-                      print('validatedChatRoom: $validatedChatRoom');
-                      print('ChatId: $newChatId');
+                chatExists = true;
+                newChatId = chatId;
+                break;
 
-                      // Filter messages based on the chat room
-                      final filteredMessages = messages.where((chatMessage) {
-                        final chatData = chatMessage as ChatMessage;
-                        String chatId = getChatId(chatData.whoSent!, chatData.whoReceived!);
-                        return chatId == newChatId;
-                      }).toList();
+              }
+            }
 
-                      // Sort messages by timestamp
-                      filteredMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            // If chat doesn't exist, create a new chatId
+            if (!chatExists) {
+              newChatId = getChatId(currentUser, otherUser!); // Generate new chatId based on the currentUser and otherUser
+              validatedChatRoom = true; // This will return true so a new chat can start
+              // Optionally, add the new chat to the box or handle it elsewhere in your app logic
+              print('New chat created with chatId: $newChatId');
+            } else {
+              validatedChatRoom = newChatId == chatRoomId; // Validate chat room if chat exists
+            }
 
-                      if (filteredMessages.isEmpty) {
-                        return Center(
-                          child: Text('No messages yet!'),
-                        );
-                      }
+            print('validatedChatRoom: $validatedChatRoom');
+            print('ChatId: $newChatId');
 
-                      List<Widget> messageWidgets = filteredMessages.map((message) {
-                        return _buildMessage(
-                          message.messageText,
-                          message.timestamp,
-                          message.whoSent,
-                          message.whoSent == currentUser,
-                        );
-                      }).toList();
-                      
+            // Filter messages based on the chat room
+            final filteredMessages = messages.where((chatMessage) {
+              final chatData = chatMessage as ChatMessage;
+              String chatId = getChatId(chatData.whoSent!, chatData.whoReceived!);
+              return chatId == newChatId;
+            }).toList();
 
-                      return ListView(
-                        padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-                        children: messageWidgets, // Display filtered messages
-                      );
-                    },
-                  ),
-          ),
+            // Sort messages by timestamp
+            filteredMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+            if (filteredMessages.isEmpty) {
+              return Center(
+                child: Text('No messages yet!'),
+              );
+            }
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToBottom();
+            });
+
+            List<Widget> messageWidgets = filteredMessages.map((message) {
+              return _buildMessage(
+                message.messageText,
+                message.timestamp,
+                message.whoSent,
+                message.whoSent == currentUser,
+              );
+            }).toList();
+            
+            return ListView(
+              controller: _scrollController,
+              padding: EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+              children: messageWidgets, // Display filtered messages
+            );
+          },
+        ),
+),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -244,7 +285,7 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
     //build a message means user is seeing it. so deleting the notification as the message is built
       var id = 'lastMessage_${getChatId(currentUser, widget.receiverId!)}';
     //overwrite the content -->
-    //updating notification status
+    //building a new message means user is seeing that. so notification will be false.
     var lastMessage = Chatlastmessage(
       messageText: text,
       timestamp: timestamp,  
@@ -253,8 +294,11 @@ class _ChatListViewState extends State<ChatView> with AutomaticKeepAliveClientMi
       isMe: isMe,
       newMessageExists: false,
     );
+
+
+
     lastMessageBox?.put(id, lastMessage);
-    //
+    
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

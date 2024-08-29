@@ -9,6 +9,7 @@ import 'package:test2/BottomTab.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:test2/chat/ChatMessage.dart';
 import 'package:test2/chat/chatLastMessage.dart';
+import 'package:test2/chat/chatViewModel.dart';
 import 'package:test2/profile/profileModel.dart';
 import 'package:test2/sharedState.dart';
 
@@ -108,13 +109,9 @@ void _startListeningForMessages() async {
           
         for (var chatDoc in snapshot.docs) {
             var chatData = chatDoc.data();
-
             if(chatData['whoSent'] == userId) {
-              // Ignore chats sent by the current user
               continue;
             }
-
-            // Fetch last message timestamp from Hive
             Chatlastmessage? lastMessageTime = lastMessageBox.get('lastMessage_${getChatId(userId, chatData['whoSent'])}');
             DateTime? lastUpDate = lastMessageTime?.timestamp;
 
@@ -135,7 +132,9 @@ void _startListeningForMessages() async {
                         String currentUser = messageData['whoReceived'];
                         bool isMe = (senderId == userId);
 
-                        _storeMessageInHive(lastMessage, messageTime, senderId, currentUser, isMe);
+                        MessageStorageService ms = MessageStorageService();
+                        ms.storeMessageInHive(text: lastMessage, timestamp: messageTime, whoSent: senderId, whoReceived: currentUser, isMe: isMe, newMessageExists: true,);
+                        //_storeMessageInHive(lastMessage, messageTime, senderId, currentUser, isMe);
                         print('New message stored in Hive: ${messageDoc.id}');
 
                         // Update lastUpDate to the latest message time
@@ -167,8 +166,6 @@ bool wasReadValidation(String id) {
   return false;
 }
 
-
-
   String getChatId(String currentUser, String otherUser) {
     if (currentUser.compareTo(otherUser) < 0) {
       return '$currentUser\_$otherUser';
@@ -177,38 +174,6 @@ bool wasReadValidation(String id) {
     }
   }
 
-  void _storeMessageInHive(String text, DateTime timestamp, String whoSent, String whoReceived, bool isMe) {
-    print('send message was called');
-    var messageId = getChatId(whoSent, whoReceived) + timestamp.toString(); // ID to identify each message
-    var id = 'lastMessage_${getChatId(whoReceived, whoSent)}';
-    var chatId = getChatId(whoSent, whoReceived);
-    String anotherUser = whoSent == whoReceived ? whoReceived : whoSent;
-
-    var chatMessage = ChatMessage(
-      messageText: text,
-      timestamp: timestamp,
-      whoSent: whoSent,
-      whoReceived: whoReceived,
-      isMe: isMe,
-      chatId: chatId, 
-      wasRead: false,
-    );
-
-    var lastMessage = Chatlastmessage(
-      messageText: text,
-      timestamp: timestamp,
-      senderId: whoSent,
-      otherUser: anotherUser,
-      isMe: isMe,
-      newMessageExists : true,
-    );
-    
-    chatBox.put(messageId, chatMessage);
-    lastMessageBox.put(id, lastMessage);
-
-    print('StoremessageinHive(Method)');
-    print('chatRoomId of this message: ${chatMessage.chatId}');
-  }  
 
   @override
   Widget build(BuildContext context) {

@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/widgets.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test2/room/AddRoom.dart';
@@ -103,9 +102,6 @@ class _RoomGridViewState extends State<RoomGridView> {
                 final rentMatches = docRent <= rent;
                 final locationMatches = location == 'any' || docLocation == location;
                 final propertyNameMatch = propertyName =='any' || condoName.contains(propertyName);
-                print('****************');
-                print(propertyName);
-                print(condoName);
 
                 return rentMatches && locationMatches && propertyNameMatch;
               }).toList();
@@ -115,12 +111,14 @@ class _RoomGridViewState extends State<RoomGridView> {
               }
 
               return GridView.builder(
+                shrinkWrap: true,
                 padding: const EdgeInsets.all(10.0),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 1,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
-                  childAspectRatio: 2.8,
+                  childAspectRatio: 1.7,
+
                 ),
                 itemCount: roomDocs.length,
                 itemBuilder: (context, index) {
@@ -144,7 +142,9 @@ class _RoomGridViewState extends State<RoomGridView> {
                       elevation: 4,
                       child: Row(
                         children: [
-                          Padding(
+                          Column(
+                            children: [
+                            Padding(
                             padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                             child: roomData['photoUrls'] != null && roomData['photoUrls'].isNotEmpty
                                 ? Image.network(
@@ -160,25 +160,36 @@ class _RoomGridViewState extends State<RoomGridView> {
                                     child: const Center(child: Text('No Image')),
                                   ),
                           ),
+                          //add profileicon here
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          )
+                          ]),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:CrossAxisAlignment.stretch,
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.bed, color: Colors.lightGreen),
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(0, 2.0, 15, 0),
-                                      child: Text(
-                                        roomData['condominiumName'] ?? 'No name',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16.0,
+                                    const Icon(Icons.bed, color: Colors.lightGreen, size: 25,),
+                                    
+                                      SizedBox(width: 10,),
+                                      Flexible(
+                                          child: Text(
+                                            roomData['condominiumName'] ?? 'No name',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 20.0,
+                                            ),
+                                            overflow: TextOverflow.ellipsis, // Handle overflow
+                                             // Limit text to 2 lines
+                                          ),
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
+
+                                    
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(0, 3.0, 0, 0),
                                       child: roomData['ForWhatGender'] == 'Male' ||
@@ -190,13 +201,19 @@ class _RoomGridViewState extends State<RoomGridView> {
                                 ),
                                 Row(
                                   children: [
-                                    const Icon(Icons.pin_drop, color: Colors.red),
-                                    Text(
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.start,
+                                      children:const [Icon(Icons.pin_drop, color: Colors.red),]),
+                                      SizedBox(width: 10,),
+                                    Flexible(
+                                      child: Text(softWrap: true,
                                       '${roomData['address']}',
                                       style: const TextStyle(
                                         fontSize: 16.0,
                                       ),
-                                    ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                    ),),
                                   ],
                                 ),
                                 Row(
@@ -223,6 +240,7 @@ class _RoomGridViewState extends State<RoomGridView> {
                                         style: const TextStyle(
                                             fontFamily: 'OpenSuns', fontSize: 15),
                                         overflow: TextOverflow.ellipsis,
+                                        maxLines: 3,
                                       ),
                                     ),
                                   ],

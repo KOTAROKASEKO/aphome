@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +11,7 @@ import 'package:test2/chat/chatLastMessage.dart';
 import 'package:test2/color.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:test2/main.dart';
+import 'package:test2/sharedData.dart';
 
 class ChatUserGridView extends StatefulWidget {
   const ChatUserGridView({super.key});
@@ -21,10 +21,10 @@ class ChatUserGridView extends StatefulWidget {
 }
 
 class _ChatUserGridViewState extends State<ChatUserGridView> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
-  String? _senderId;
+  final String _senderId = SharedData.getCurrentUserId();
   Box<Chatlastmessage>? chatBox;
   Box<ChatMessage>? chatMessageBox;  // Nullable until initialized
   bool newMessageExists = false;
@@ -34,7 +34,6 @@ class _ChatUserGridViewState extends State<ChatUserGridView> {
   @override
   void initState() {
     super.initState();
-    _getCurrentUser();
     openBox();  // Initialize the Hive boxes
   }
 
@@ -55,15 +54,6 @@ class _ChatUserGridViewState extends State<ChatUserGridView> {
     setState(() {});  // Rebuild UI once the boxes are open
   }
 
-  void _getCurrentUser() {
-    final User? user = _auth.currentUser;
-    if (user != null) {
-      setState(() {
-        _senderId = user.uid;
-        print('current user(_senderId) is $_senderId');
-      });
-    }
-  }
 
   Future<bool> _deleteChat(String chatId) async {
     try {
@@ -130,7 +120,7 @@ class _ChatUserGridViewState extends State<ChatUserGridView> {
   @override
   Widget build(BuildContext context) {
 
-    if (_senderId == null || chatBox == null || chatMessageBox == null) {
+    if (chatBox == null || chatMessageBox == null) {
       // Show loading indicator until all necessary data is loaded
       return Scaffold(
         backgroundColor: AppColors.backgroundColor,

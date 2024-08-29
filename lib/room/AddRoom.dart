@@ -108,7 +108,7 @@ class _AddRoomState extends State<AddRoom> {
     int numOfRooms = int.tryParse(_numOfRoomsController.text) ?? 0;
     String note = _noteController.text;
     User? user = _auth.currentUser;
-    String Address = _AddressController.text;
+    String address = _AddressController.text;
 
     if (user != null) {
       String userId = user.uid;
@@ -124,7 +124,7 @@ class _AddRoomState extends State<AddRoom> {
           await FirebaseFirestore.instance.collection('RoomInformation').add({
             'userId': userId,
             'condominiumName': condoName,
-            'address':Address,
+            'address':address,
             'ForWhatGender': wantedGender,
             'rent': rent,
             'numOfRooms': numOfRooms,

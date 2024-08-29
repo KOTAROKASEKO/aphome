@@ -17,7 +17,7 @@ class BottomTab extends StatefulWidget {
   _BottomTabState createState() => _BottomTabState();
 }
 
-class _BottomTabState extends State<BottomTab>  with SingleTickerProviderStateMixin{
+class _BottomTabState extends State<BottomTab> {
   static bool isLoggedIn = false;
   int _selectedIndex = 0;
 
